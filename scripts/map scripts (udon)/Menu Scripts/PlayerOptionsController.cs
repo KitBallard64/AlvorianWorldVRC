@@ -23,6 +23,13 @@ public class PlayerOptionsController : UdonSharpBehaviour
     [Tooltip("TMP Text object to display the Double-Tap Fly checkmark.")]
     public TextMeshProUGUI doubleTapCheckmarkText;
 
+    [Header("Button Flip UI")]
+    [Tooltip("Root object for the Button Flip option (will be hidden on Desktop or when double-tap is OFF).")]
+    public GameObject buttonFlipOptionRoot;
+
+    [Tooltip("TMP Text object to display the Button Flip checkmark.")]
+    public TextMeshProUGUI buttonFlipCheckmarkText;
+
     [Header("Spawn Speed Boost UI")]
     [Tooltip("Root object for the Spawn Speed Boost option.")]
     public GameObject spawnBoostOptionRoot;
@@ -39,11 +46,13 @@ public class PlayerOptionsController : UdonSharpBehaviour
 
     // Persistence keys (unique per setting)
     private const string DOUBLE_TAP_KEY = "optDoubleTapFly";
+    private const string BUTTON_FLIP_KEY = "optButtonFlip";
     private const string SPAWN_BOOST_KEY = "optSpawnSpeedBoost";
     private const string HUD_VISIBLE_KEY = "optHudVisible";
 
     // Local cached state for the toggles
     private bool _doubleTapEnabled = false;   // default OFF
+    private bool _buttonFlipped = false;      // default OFF (use Button2/B)
     private bool _spawnBoostEnabled = true;   // default ON
     private bool _hudVisible = true;          // default ON
 
@@ -61,6 +70,7 @@ public class PlayerOptionsController : UdonSharpBehaviour
 
         // Apply current states (defaults until OnPlayerRestored runs)
         ApplyDoubleTapState();
+        ApplyButtonFlipState();
         ApplySpawnBoostState();
         ApplyHudState();
     }
@@ -76,6 +86,10 @@ public class PlayerOptionsController : UdonSharpBehaviour
         if (doubleTapOptionRoot != null)
             doubleTapOptionRoot.SetActive(inVR);
 
+        // Button flip option is VR-only AND only visible when double-tap is enabled
+        if (buttonFlipOptionRoot != null)
+            buttonFlipOptionRoot.SetActive(inVR && _doubleTapEnabled);
+
         // Spawn boost and HUD options are always visible
         if (spawnBoostOptionRoot != null)
             spawnBoostOptionRoot.SetActive(true);
@@ -87,8 +101,11 @@ public class PlayerOptionsController : UdonSharpBehaviour
         if (!inVR)
         {
             _doubleTapEnabled = false;
+            _buttonFlipped = false;
             ApplyDoubleTapState();
+            ApplyButtonFlipState();
             PlayerData.SetInt(DOUBLE_TAP_KEY, 0);
+            PlayerData.SetInt(BUTTON_FLIP_KEY, 0);
         }
     }
 
@@ -112,21 +129,67 @@ public class PlayerOptionsController : UdonSharpBehaviour
 
         _doubleTapEnabled = !_doubleTapEnabled;
 
+        // If disabling double-tap, also disable button flip
+        if (!_doubleTapEnabled)
+        {
+            _buttonFlipped = false;
+            ApplyButtonFlipState();
+            PlayerData.SetInt(BUTTON_FLIP_KEY, 0);
+        }
+
         ApplyDoubleTapState();
         PlayerData.SetInt(DOUBLE_TAP_KEY, _doubleTapEnabled ? 1 : 0);
+        
+        // Update button flip option visibility
+        UpdateVrVisibility();
     }
 
     private void ApplyDoubleTapState()
     {
         if (flyController != null)
         {
-            flyController.allowControllerToggle = _doubleTapEnabled;
-            // Set button mode: when enabled, double-tap on Button1 (A); when disabled, no double-tap
-            flyController.SetButtonMode(_doubleTapEnabled);
+            // Enable/disable the double-tap feature
+            flyController.SetDoubleTapEnabled(_doubleTapEnabled);
         }
 
         if (doubleTapCheckmarkText != null)
             doubleTapCheckmarkText.text = _doubleTapEnabled ? CHECKMARK : EMPTY;
+    }
+
+    // --- Button Flip ---
+
+    public void ToggleButtonFlip()
+    {
+        if (_localPlayer == null)
+            _localPlayer = Networking.LocalPlayer;
+
+        bool inVR = _localPlayer != null && _localPlayer.IsUserInVR();
+
+        // Only works in VR and when double-tap is enabled
+        if (!inVR || !_doubleTapEnabled)
+        {
+            _buttonFlipped = false;
+            ApplyButtonFlipState();
+            PlayerData.SetInt(BUTTON_FLIP_KEY, 0);
+            return;
+        }
+
+        _buttonFlipped = !_buttonFlipped;
+
+        ApplyButtonFlipState();
+        PlayerData.SetInt(BUTTON_FLIP_KEY, _buttonFlipped ? 1 : 0);
+    }
+
+    private void ApplyButtonFlipState()
+    {
+        if (flyController != null)
+        {
+            // Set which button to use: when flipped, use Button1 (A); otherwise use Button2 (B)
+            flyController.SetButtonMode(_buttonFlipped);
+        }
+
+        if (buttonFlipCheckmarkText != null)
+            buttonFlipCheckmarkText.text = _buttonFlipped ? CHECKMARK : EMPTY;
     }
 
     // --- Spawn Speed Boost (collider on/off) ---
@@ -179,6 +242,11 @@ public class PlayerOptionsController : UdonSharpBehaviour
         bool hasDouble = PlayerData.TryGetInt(player, DOUBLE_TAP_KEY, out savedDouble);
         _doubleTapEnabled = hasDouble && (savedDouble != 0);
 
+        // Button flip
+        int savedFlip;
+        bool hasFlip = PlayerData.TryGetInt(player, BUTTON_FLIP_KEY, out savedFlip);
+        _buttonFlipped = hasFlip && (savedFlip != 0);
+
         // Spawn speed boost (default ON if no saved value)
         int savedSpawn;
         bool hasSpawn = PlayerData.TryGetInt(player, SPAWN_BOOST_KEY, out savedSpawn);
@@ -191,6 +259,7 @@ public class PlayerOptionsController : UdonSharpBehaviour
 
         // Re-apply all settings
         ApplyDoubleTapState();
+        ApplyButtonFlipState();
         ApplySpawnBoostState();
         ApplyHudState();
 
@@ -239,6 +308,7 @@ public class PlayerOptionsController : UdonSharpBehaviour
     {
         UpdateVrVisibility();
         ApplyDoubleTapState();
+        ApplyButtonFlipState();
         ApplySpawnBoostState();
         ApplyHudState();
     }
