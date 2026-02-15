@@ -182,7 +182,7 @@ public class DMFlyController : UdonSharpBehaviour
         // Vertical movement:
         //  - Jump = up
         //  - Shift (desktop) = down
-        //  - B button (Oculus_CrossPlatform_Button2) = down in VR
+        //  - A or B button (based on button flip setting) = down in VR
         Vector3 vertical = Vector3.zero;
 
         if (upHeld)
@@ -198,10 +198,22 @@ public class DMFlyController : UdonSharpBehaviour
             isDown = true;
         }
 
-        // VR down: B button (Button2)
-        if (Input.GetButton("Oculus_CrossPlatform_Button2"))
+        // VR down: Check the appropriate button based on button flip setting
+        if (useButton1)
         {
-            isDown = true;
+            // When flipped, A button (Button1) descends
+            if (Input.GetButton("Oculus_CrossPlatform_Button1"))
+            {
+                isDown = true;
+            }
+        }
+        else
+        {
+            // When not flipped (default), B button (Button2) descends
+            if (Input.GetButton("Oculus_CrossPlatform_Button2"))
+            {
+                isDown = true;
+            }
         }
 
         if (isDown)
