@@ -19,17 +19,14 @@ public class DMFlyController : UdonSharpBehaviour
     public float verticalSpeed = 4f;
 
     [Header("Controller Toggle Settings")]
-    [Tooltip("If true, double-tap B (Button2) will toggle fly on/off.")]
+    [Tooltip("If true, double-tap A (Button1) will toggle fly on/off; if false, double-tap B (Button2) will toggle fly.")]
     public bool allowControllerToggle = false;
 
-    [Tooltip("Max time (in seconds) between B presses to count as a double-tap.")]
+    [Tooltip("Max time (in seconds) between button presses to count as a double-tap.")]
     public float doubleTapWindow = 0.3f;
 
     private float _lastButton2TapTime = -999f;
     private float _lastButton1TapTime = -999f;
-    
-    // When true, use Button1 (A) for double-tap; when false, use Button2 (B)
-    private bool _useButton1Mode = false;
 
     [Header("Dice HUD Hook (Optional)")]
     [Tooltip("UdonSharpBehaviour for the dice HUD or log system.")]
@@ -71,12 +68,14 @@ public class DMFlyController : UdonSharpBehaviour
     }
 
     /// <summary>
-    /// Set which button mode to use for double-tap fly toggle.
+    /// Set which button to use for double-tap fly toggle.
+    /// This method exists for backwards compatibility but the button mode
+    /// is now directly controlled by allowControllerToggle.
     /// </summary>
     /// <param name="useButton1">If true, use Button1 (A); if false, use Button2 (B)</param>
     public void SetButtonMode(bool useButton1)
     {
-        _useButton1Mode = useButton1;
+        allowControllerToggle = useButton1;
         Debug.Log("[FlyController] Button mode set to: " + (useButton1 ? "Button1 (A)" : "Button2 (B)"));
     }
 
@@ -228,48 +227,45 @@ public class DMFlyController : UdonSharpBehaviour
             ToggleFlyMode();
         }
 
-        // Optional: VR controller double-tap to toggle fly
-        // Use Button1 (A) when _useButton1Mode is true, otherwise use Button2 (B)
+        // VR controller double-tap to toggle fly
+        // When allowControllerToggle is true, use Button1 (A); when false, use Button2 (B)
         if (allowControllerToggle)
         {
-            if (_useButton1Mode)
+            // Check for double-tap on Button1 (A)
+            if (Input.GetButtonDown("Oculus_CrossPlatform_Button1"))
             {
-                // Check for double-tap on Button1 (A)
-                if (Input.GetButtonDown("Oculus_CrossPlatform_Button1"))
+                float now = Time.time;
+                if (now - _lastButton1TapTime <= doubleTapWindow)
                 {
-                    float now = Time.time;
-                    if (now - _lastButton1TapTime <= doubleTapWindow)
-                    {
-                        // Detected a double-tap
-                        ToggleFlyMode();
-                        // Reset so we don't instantly chain into another toggle
-                        _lastButton1TapTime = -999f;
-                    }
-                    else
-                    {
-                        // First tap (or too slow), just record time
-                        _lastButton1TapTime = now;
-                    }
+                    // Detected a double-tap
+                    ToggleFlyMode();
+                    // Reset so we don't instantly chain into another toggle
+                    _lastButton1TapTime = -999f;
+                }
+                else
+                {
+                    // First tap (or too slow), just record time
+                    _lastButton1TapTime = now;
                 }
             }
-            else
+        }
+        else
+        {
+            // Check for double-tap on Button2 (B)
+            if (Input.GetButtonDown("Oculus_CrossPlatform_Button2"))
             {
-                // Check for double-tap on Button2 (B)
-                if (Input.GetButtonDown("Oculus_CrossPlatform_Button2"))
+                float now = Time.time;
+                if (now - _lastButton2TapTime <= doubleTapWindow)
                 {
-                    float now = Time.time;
-                    if (now - _lastButton2TapTime <= doubleTapWindow)
-                    {
-                        // Detected a double-tap
-                        ToggleFlyMode();
-                        // Reset so we don't instantly chain into another toggle
-                        _lastButton2TapTime = -999f;
-                    }
-                    else
-                    {
-                        // First tap (or too slow), just record time
-                        _lastButton2TapTime = now;
-                    }
+                    // Detected a double-tap
+                    ToggleFlyMode();
+                    // Reset so we don't instantly chain into another toggle
+                    _lastButton2TapTime = -999f;
+                }
+                else
+                {
+                    // First tap (or too slow), just record time
+                    _lastButton2TapTime = now;
                 }
             }
         }
