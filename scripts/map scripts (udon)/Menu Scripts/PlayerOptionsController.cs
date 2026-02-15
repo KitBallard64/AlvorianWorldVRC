@@ -147,6 +147,8 @@ public class PlayerOptionsController : UdonSharpBehaviour
         {
             // Enable/disable the double-tap feature
             flyController.SetDoubleTapEnabled(_doubleTapEnabled);
+            // Also update the button flip state
+            flyController.SetButtonMode(_buttonFlipped);
         }
 
         if (doubleTapCheckmarkText != null)
