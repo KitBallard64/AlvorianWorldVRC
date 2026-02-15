@@ -20,7 +20,7 @@ public class DMFlyController : UdonSharpBehaviour
 
     [Header("Controller Toggle Settings")]
     [Tooltip("If true, double-tap A (Button1) will toggle fly on/off; if false, double-tap B (Button2) will toggle fly.")]
-    public bool allowControllerToggle = false;
+    public bool allowControllerToggle = false;  // Can be set via Inspector or SetButtonMode() method
 
     [Tooltip("Max time (in seconds) between button presses to count as a double-tap.")]
     public float doubleTapWindow = 0.3f;
@@ -69,8 +69,7 @@ public class DMFlyController : UdonSharpBehaviour
 
     /// <summary>
     /// Set which button to use for double-tap fly toggle.
-    /// This method exists for backwards compatibility but the button mode
-    /// is now directly controlled by allowControllerToggle.
+    /// Called by PlayerOptionsController to update the button mode when the toggle changes.
     /// </summary>
     /// <param name="useButton1">If true, use Button1 (A); if false, use Button2 (B)</param>
     public void SetButtonMode(bool useButton1)
