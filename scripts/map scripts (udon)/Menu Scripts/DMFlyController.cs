@@ -19,13 +19,12 @@ public class DMFlyController : UdonSharpBehaviour
     public float verticalSpeed = 4f;
 
     [Header("Controller Toggle Settings")]
-    [Tooltip("If true, double-tap A (Button1) will toggle fly on/off; if false, double-tap B (Button2) will toggle fly.")]
+    [Tooltip("If true, enables double-tap A (Button1) to toggle fly on/off.")]
     public bool allowControllerToggle = false;  // Can be set via Inspector or SetButtonMode() method
 
     [Tooltip("Max time (in seconds) between button presses to count as a double-tap.")]
     public float doubleTapWindow = 0.3f;
 
-    private float _lastButton2TapTime = -999f;
     private float _lastButton1TapTime = -999f;
 
     [Header("Dice HUD Hook (Optional)")]
@@ -68,14 +67,14 @@ public class DMFlyController : UdonSharpBehaviour
     }
 
     /// <summary>
-    /// Set which button to use for double-tap fly toggle.
-    /// Called by PlayerOptionsController to update the button mode when the toggle changes.
+    /// Enable or disable the double-tap fly toggle feature.
+    /// Called by PlayerOptionsController when the toggle changes.
     /// </summary>
-    /// <param name="useButton1">If true, use Button1 (A); if false, use Button2 (B)</param>
+    /// <param name="useButton1">If true, enables double-tap on Button1 (A); if false, disables double-tap</param>
     public void SetButtonMode(bool useButton1)
     {
         allowControllerToggle = useButton1;
-        Debug.Log("[FlyController] Button mode set to: " + (useButton1 ? "Button1 (A)" : "Button2 (B)"));
+        Debug.Log("[FlyController] Double-tap fly: " + (useButton1 ? "ENABLED on Button1 (A)" : "DISABLED"));
     }
 
     private void EnableFlyMode(VRCPlayerApi player)
@@ -226,8 +225,8 @@ public class DMFlyController : UdonSharpBehaviour
             ToggleFlyMode();
         }
 
-        // VR controller double-tap to toggle fly
-        // When allowControllerToggle is true, use Button1 (A); when false, use Button2 (B)
+        // VR controller double-tap to toggle fly (only when enabled)
+        // When allowControllerToggle is true, use Button1 (A)
         if (allowControllerToggle)
         {
             // Check for double-tap on Button1 (A)
@@ -245,26 +244,6 @@ public class DMFlyController : UdonSharpBehaviour
                 {
                     // First tap (or too slow), just record time
                     _lastButton1TapTime = now;
-                }
-            }
-        }
-        else
-        {
-            // Check for double-tap on Button2 (B)
-            if (Input.GetButtonDown("Oculus_CrossPlatform_Button2"))
-            {
-                float now = Time.time;
-                if (now - _lastButton2TapTime <= doubleTapWindow)
-                {
-                    // Detected a double-tap
-                    ToggleFlyMode();
-                    // Reset so we don't instantly chain into another toggle
-                    _lastButton2TapTime = -999f;
-                }
-                else
-                {
-                    // First tap (or too slow), just record time
-                    _lastButton2TapTime = now;
                 }
             }
         }
