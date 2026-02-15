@@ -182,7 +182,7 @@ public class DMFlyController : UdonSharpBehaviour
         // Vertical movement:
         //  - Jump = up
         //  - Shift (desktop) = down
-        //  - B button (Oculus_CrossPlatform_Button2) = down in VR
+        //  - A or B button (based on button flip setting) = down in VR
         Vector3 vertical = Vector3.zero;
 
         if (upHeld)
