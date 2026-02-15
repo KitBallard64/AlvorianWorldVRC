@@ -172,10 +172,17 @@ public class PlayerOptionsController : UdonSharpBehaviour
 
         bool inVR = _localPlayer != null && _localPlayer.IsUserInVR();
 
-        // Only works in VR and when double-tap is enabled
-        if (!inVR || !_doubleTapEnabled)
+        if (!inVR)
         {
+            // Only reset if not in VR
             ResetButtonFlipState();
+            return;
+        }
+
+        // If we get here, we're in VR. Only allow toggling if double-tap is enabled
+        if (!_doubleTapEnabled)
+        {
+            // Don't toggle, but also don't reset - just return silently
             return;
         }
 
