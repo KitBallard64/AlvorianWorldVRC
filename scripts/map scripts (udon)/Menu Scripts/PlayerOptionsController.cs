@@ -97,15 +97,14 @@ public class PlayerOptionsController : UdonSharpBehaviour
         if (hudOptionRoot != null)
             hudOptionRoot.SetActive(true);
 
-        // If not in VR, force double-tap OFF
+        // If not in VR, force double-tap and button flip OFF
         if (!inVR)
         {
             _doubleTapEnabled = false;
-            _buttonFlipped = false;
             ApplyDoubleTapState();
-            ApplyButtonFlipState();
             PlayerData.SetInt(DOUBLE_TAP_KEY, 0);
-            PlayerData.SetInt(BUTTON_FLIP_KEY, 0);
+            
+            ResetButtonFlipState();
         }
     }
 
@@ -132,9 +131,7 @@ public class PlayerOptionsController : UdonSharpBehaviour
         // If disabling double-tap, also disable button flip
         if (!_doubleTapEnabled)
         {
-            _buttonFlipped = false;
-            ApplyButtonFlipState();
-            PlayerData.SetInt(BUTTON_FLIP_KEY, 0);
+            ResetButtonFlipState();
         }
 
         ApplyDoubleTapState();
@@ -158,6 +155,13 @@ public class PlayerOptionsController : UdonSharpBehaviour
 
     // --- Button Flip ---
 
+    private void ResetButtonFlipState()
+    {
+        _buttonFlipped = false;
+        ApplyButtonFlipState();
+        PlayerData.SetInt(BUTTON_FLIP_KEY, 0);
+    }
+
     public void ToggleButtonFlip()
     {
         if (_localPlayer == null)
@@ -168,9 +172,7 @@ public class PlayerOptionsController : UdonSharpBehaviour
         // Only works in VR and when double-tap is enabled
         if (!inVR || !_doubleTapEnabled)
         {
-            _buttonFlipped = false;
-            ApplyButtonFlipState();
-            PlayerData.SetInt(BUTTON_FLIP_KEY, 0);
+            ResetButtonFlipState();
             return;
         }
 

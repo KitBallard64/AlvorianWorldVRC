@@ -20,10 +20,10 @@ public class DMFlyController : UdonSharpBehaviour
 
     [Header("Controller Toggle Settings")]
     [Tooltip("If true, enables double-tap controller button to toggle fly on/off.")]
-    public bool allowControllerToggle = false;  // Enables/disables the feature entirely
+    public bool allowControllerToggle = false;  // Enables/disables the feature entirely (can be set in Inspector or via SetDoubleTapEnabled)
     
     [Tooltip("If true, use Button1 (A) for double-tap; if false, use Button2 (B).")]
-    public bool useButton1 = false;  // Which button to use when feature is enabled
+    public bool useButton1 = false;  // Which button to use when feature is enabled (can be set in Inspector or via SetButtonMode)
 
     [Tooltip("Max time (in seconds) between button presses to count as a double-tap.")]
     public float doubleTapWindow = 0.3f;
