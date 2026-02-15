@@ -26,6 +26,10 @@ public class DMFlyController : UdonSharpBehaviour
     public float doubleTapWindow = 0.3f;
 
     private float _lastButton2TapTime = -999f;
+    private float _lastButton1TapTime = -999f;
+    
+    // When true, use Button1 (A) for double-tap; when false, use Button2 (B)
+    private bool _useButton1Mode = false;
 
     [Header("Dice HUD Hook (Optional)")]
     [Tooltip("UdonSharpBehaviour for the dice HUD or log system.")]
@@ -64,6 +68,16 @@ public class DMFlyController : UdonSharpBehaviour
         {
             DisableFlyMode(localPlayer);
         }
+    }
+
+    /// <summary>
+    /// Set which button mode to use for double-tap fly toggle.
+    /// </summary>
+    /// <param name="useButton1">If true, use Button1 (A); if false, use Button2 (B)</param>
+    public void SetButtonMode(bool useButton1)
+    {
+        _useButton1Mode = useButton1;
+        Debug.Log("[FlyController] Button mode set to: " + (useButton1 ? "Button1 (A)" : "Button2 (B)"));
     }
 
     private void EnableFlyMode(VRCPlayerApi player)
@@ -214,21 +228,49 @@ public class DMFlyController : UdonSharpBehaviour
             ToggleFlyMode();
         }
 
-        // Optional: VR controller double-tap B (Button2) to toggle fly
-        if (allowControllerToggle && Input.GetButtonDown("Oculus_CrossPlatform_Button2"))
+        // Optional: VR controller double-tap to toggle fly
+        // Use Button1 (A) when _useButton1Mode is true, otherwise use Button2 (B)
+        if (allowControllerToggle)
         {
-            float now = Time.time;
-            if (now - _lastButton2TapTime <= doubleTapWindow)
+            if (_useButton1Mode)
             {
-                // Detected a double-tap
-                ToggleFlyMode();
-                // Reset so we don't instantly chain into another toggle
-                _lastButton2TapTime = -999f;
+                // Check for double-tap on Button1 (A)
+                if (Input.GetButtonDown("Oculus_CrossPlatform_Button1"))
+                {
+                    float now = Time.time;
+                    if (now - _lastButton1TapTime <= doubleTapWindow)
+                    {
+                        // Detected a double-tap
+                        ToggleFlyMode();
+                        // Reset so we don't instantly chain into another toggle
+                        _lastButton1TapTime = -999f;
+                    }
+                    else
+                    {
+                        // First tap (or too slow), just record time
+                        _lastButton1TapTime = now;
+                    }
+                }
             }
             else
             {
-                // First tap (or too slow), just record time
-                _lastButton2TapTime = now;
+                // Check for double-tap on Button2 (B)
+                if (Input.GetButtonDown("Oculus_CrossPlatform_Button2"))
+                {
+                    float now = Time.time;
+                    if (now - _lastButton2TapTime <= doubleTapWindow)
+                    {
+                        // Detected a double-tap
+                        ToggleFlyMode();
+                        // Reset so we don't instantly chain into another toggle
+                        _lastButton2TapTime = -999f;
+                    }
+                    else
+                    {
+                        // First tap (or too slow), just record time
+                        _lastButton2TapTime = now;
+                    }
+                }
             }
         }
 

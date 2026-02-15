@@ -119,7 +119,11 @@ public class PlayerOptionsController : UdonSharpBehaviour
     private void ApplyDoubleTapState()
     {
         if (flyController != null)
+        {
             flyController.allowControllerToggle = _doubleTapEnabled;
+            // Set button mode: when enabled, use Button1 (A); when disabled, use Button2 (B)
+            flyController.SetButtonMode(_doubleTapEnabled);
+        }
 
         if (doubleTapCheckmarkText != null)
             doubleTapCheckmarkText.text = _doubleTapEnabled ? CHECKMARK : EMPTY;
