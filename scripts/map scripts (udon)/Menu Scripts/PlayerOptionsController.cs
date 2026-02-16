@@ -196,6 +196,8 @@ public class PlayerOptionsController : UdonSharpBehaviour
     {
         if (flyController != null)
         {
+            // Re-sync double-tap enabled state to ensure it stays active when flipping buttons
+            flyController.SetDoubleTapEnabled(_doubleTapEnabled);
             // Set which button to use: when flipped, use Button1 (A); otherwise use Button2 (B)
             flyController.SetButtonMode(_buttonFlipped);
         }
