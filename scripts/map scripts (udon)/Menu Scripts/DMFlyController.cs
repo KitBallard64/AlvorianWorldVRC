@@ -89,6 +89,11 @@ public class DMFlyController : UdonSharpBehaviour
     public void SetButtonMode(bool useButtonA)
     {
         useButton1 = useButtonA;
+        
+        // CRITICAL: Reset tap timers when switching buttons to prevent old timing data from interfering
+        _lastButton1TapTime = -999f;
+        _lastButton2TapTime = -999f;
+        
         Debug.Log("[FlyController] Double-tap button: " + (useButtonA ? "Button1 (A)" : "Button2 (B)"));
     }
 
