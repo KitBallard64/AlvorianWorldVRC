@@ -353,10 +353,18 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
 
         if (UseSun && Sun != null)
         {
-            Sun.transform.localRotation = Quaternion.Euler((CurrentTimeOfDay * 360f) - 90, 140, 30);
-            Sun.color = TwoPoint(SunPoint1, SunPoint2, SunColor1, SunColor2);
-            float sunintensity = TwoPointFloat(SunIntensityPoint1, SunIntensityPoint2);
-            Sun.intensity = (SunInitialIntensity * sunintensity) + 0.001f;
+            if (SetMode == 5)
+            {
+                Sun.enabled = false;
+            }
+            else
+            {
+                Sun.enabled = true;
+                Sun.transform.localRotation = Quaternion.Euler((CurrentTimeOfDay * 360f) - 90, 140, 30);
+                Sun.color = TwoPoint(SunPoint1, SunPoint2, SunColor1, SunColor2);
+                float sunintensity = TwoPointFloat(SunIntensityPoint1, SunIntensityPoint2);
+                Sun.intensity = (SunInitialIntensity * sunintensity) + 0.001f;
+            }
         }
 
         if (UseSky && SkyObject != null)
