@@ -146,21 +146,11 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
 
     private Color c;
 
-    // Stored original ambient colors, saved when entering Bloodmoon mode
-    private Color _origAmbientColor1;
-    private Color _origAmbientColor2;
-    private Color _origAmbientColor3;
-
     // Stored original sun colors and intensities, saved when entering Bloodmoon mode
     private Color _origSunColor1;
     private Color _origSunColor2;
     private float _origSunIntensityPoint1;
     private float _origSunIntensityPoint2;
-
-    // Stored original cloud colors, saved when entering Bloodmoon mode
-    private Color _origCloudColor1;
-    private Color _origCloudColor2;
-    private Color _origCloudColor3;
 
     // Optional safety: keep sky position stable even if something tries to move it.
     private Vector3 _skyBasePos;
@@ -428,21 +418,11 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     {
         if (SetMode == 5)
         {
-            // Bloodmoon is active — restore original ambient colors and return to night
-            AmbientColor1 = _origAmbientColor1;
-            AmbientColor2 = _origAmbientColor2;
-            AmbientColor3 = _origAmbientColor3;
-
-            // Restore original sun colors and intensities
+            // Bloodmoon is active — restore original sun colors and return to night
             SunColor1 = _origSunColor1;
             SunColor2 = _origSunColor2;
             SunIntensityPoint1 = _origSunIntensityPoint1;
             SunIntensityPoint2 = _origSunIntensityPoint2;
-
-            // Restore original cloud colors
-            CloudColor1 = _origCloudColor1;
-            CloudColor2 = _origCloudColor2;
-            CloudColor3 = _origCloudColor3;
 
             SetNight();
         }
@@ -458,16 +438,6 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
                 Networking.SetOwner(lp, gameObject);
             }
 
-            // Save original ambient colors before overriding
-            _origAmbientColor1 = AmbientColor1;
-            _origAmbientColor2 = AmbientColor2;
-            _origAmbientColor3 = AmbientColor3;
-
-            // Override ambient colors with red shades for bloodmoon atmosphere
-            AmbientColor1 = new Color(0.25f, 0.02f, 0.02f, 1f); // darker red
-            AmbientColor2 = new Color(0.45f, 0.05f, 0.05f, 1f); // medium red
-            AmbientColor3 = new Color(0.75f, 0.08f, 0.08f, 1f); // lighter red
-
             // Save original sun colors and intensities before overriding
             _origSunColor1 = SunColor1;
             _origSunColor2 = SunColor2;
@@ -479,16 +449,6 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
             SunColor2 = new Color(0.56f, 0.02f, 0.02f, 1f);
             SunIntensityPoint1 = BloodmoonSunIntensity;
             SunIntensityPoint2 = BloodmoonSunIntensity;
-
-            // Save original cloud colors before overriding
-            _origCloudColor1 = CloudColor1;
-            _origCloudColor2 = CloudColor2;
-            _origCloudColor3 = CloudColor3;
-
-            // Disable clouds by setting to black
-            CloudColor1 = Color.black;
-            CloudColor2 = Color.black;
-            CloudColor3 = Color.black;
 
             TimerRunning = false;
             CurrentTimeOfDay = DayTime; // Day time for visibility without visible sun
