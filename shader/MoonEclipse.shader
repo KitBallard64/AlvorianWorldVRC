@@ -21,7 +21,7 @@ Shader "MoonEclipse"
 		CGPROGRAM
 		#include "UnityShaderVariables.cginc"
 		#pragma target 3.0
-		#pragma surface surf Standard keepalpha noshadow 
+		#pragma surface surf Standard keepalpha noshadow nofog
 		struct Input
 		{
 			float2 uv_texcoord;
