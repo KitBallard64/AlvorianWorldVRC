@@ -21,7 +21,7 @@ Shader "HighlightRing"
 		CGPROGRAM
 		#include "UnityShaderVariables.cginc"
 		#pragma target 3.0
-		#pragma surface surf Unlit alpha:fade keepalpha noshadow 
+		#pragma surface surf Unlit alpha:fade keepalpha noshadow nofog
 		struct Input
 		{
 			float2 uv_texcoord;

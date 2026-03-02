@@ -44,7 +44,7 @@ Shader "Eclipse"
 
 		ENDCG
 		CGPROGRAM
-		#pragma surface surf Unlit alpha:fade keepalpha fullforwardshadows 
+		#pragma surface surf Unlit alpha:fade keepalpha fullforwardshadows nofog
 
 		ENDCG
 		Pass
