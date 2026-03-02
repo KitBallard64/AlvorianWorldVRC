@@ -144,6 +144,11 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
 
     private Color c;
 
+    // Stored original ambient colors, saved when entering Bloodmoon mode
+    private Color _origAmbientColor1;
+    private Color _origAmbientColor2;
+    private Color _origAmbientColor3;
+
     // Optional safety: keep sky position stable even if something tries to move it.
     private Vector3 _skyBasePos;
     private bool _skyBaseCaptured;
@@ -345,11 +350,8 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
         }
 
         // --- Lighting/Sky application ---
-        if (SetMode == 5)
-            RenderSettings.ambientLight = BloodmoonAmbientColor;
-        else
-            RenderSettings.ambientLight = ThreePoint(AmbientPoint1, AmbientPoint2, AmbientPoint3,
-                AmbientColor1, AmbientColor2, AmbientColor3);
+        RenderSettings.ambientLight = ThreePoint(AmbientPoint1, AmbientPoint2, AmbientPoint3,
+            AmbientColor1, AmbientColor2, AmbientColor3);
 
         if (UseSun && Sun != null)
         {
@@ -382,24 +384,16 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
 
         if (UseStars)
         {
-            if (SetMode == 5)
-            {
-                StarsMat.SetColor("_EmissionColor", BloodmoonStarColor);
-                if (!StarsObject.activeInHierarchy) StarsObject.SetActive(true);
-            }
-            else
-            {
-                c = TwoPoint(StarPoint1, StarPoint2, StarColor1, StarColor2);
-                StarsMat.SetColor("_EmissionColor", c);
+            c = TwoPoint(StarPoint1, StarPoint2, StarColor1, StarColor2);
+            StarsMat.SetColor("_EmissionColor", c);
 
-                if (c.a <= StarCutoff)
-                {
-                    if (StarsObject.activeInHierarchy) StarsObject.SetActive(false);
-                }
-                else if (!StarsObject.activeInHierarchy)
-                {
-                    StarsObject.SetActive(true);
-                }
+            if (c.a <= StarCutoff)
+            {
+                if (StarsObject.activeInHierarchy) StarsObject.SetActive(false);
+            }
+            else if (!StarsObject.activeInHierarchy)
+            {
+                StarsObject.SetActive(true);
             }
         }
 
@@ -428,7 +422,10 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     {
         if (SetMode == 5)
         {
-            // Bloodmoon is active — toggle it off by returning to night
+            // Bloodmoon is active — restore original ambient colors and return to night
+            AmbientColor1 = _origAmbientColor1;
+            AmbientColor2 = _origAmbientColor2;
+            AmbientColor3 = _origAmbientColor3;
             SetNight();
         }
         else
@@ -443,11 +440,21 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
                 Networking.SetOwner(lp, gameObject);
             }
 
+            // Save original ambient colors before overriding
+            _origAmbientColor1 = AmbientColor1;
+            _origAmbientColor2 = AmbientColor2;
+            _origAmbientColor3 = AmbientColor3;
+
+            // Override ambient colors with red shades for bloodmoon atmosphere
+            AmbientColor1 = new Color(0.25f, 0.02f, 0.02f, 1f); // darker red
+            AmbientColor2 = new Color(0.45f, 0.05f, 0.05f, 1f); // medium red
+            AmbientColor3 = new Color(0.75f, 0.08f, 0.08f, 1f); // lighter red
+
             TimerRunning = false;
-            CurrentTimeOfDay = 0.99f; // Just before midnight for maximum darkness
+            CurrentTimeOfDay = DayTime; // Day time for visibility without visible sun
             Speed = 0f;
 
-            SetTime = 0.99f;
+            SetTime = DayTime;
             SetSpeed = 0f;
             SetMode = 5; // Bloodmoon
             syncid = GetID();
