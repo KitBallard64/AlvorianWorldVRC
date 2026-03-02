@@ -149,6 +149,17 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     private Color _origAmbientColor2;
     private Color _origAmbientColor3;
 
+    // Stored original sun colors and intensities, saved when entering Bloodmoon mode
+    private Color _origSunColor1;
+    private Color _origSunColor2;
+    private float _origSunIntensityPoint1;
+    private float _origSunIntensityPoint2;
+
+    // Stored original cloud colors, saved when entering Bloodmoon mode
+    private Color _origCloudColor1;
+    private Color _origCloudColor2;
+    private Color _origCloudColor3;
+
     // Optional safety: keep sky position stable even if something tries to move it.
     private Vector3 _skyBasePos;
     private bool _skyBaseCaptured;
@@ -426,6 +437,18 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
             AmbientColor1 = _origAmbientColor1;
             AmbientColor2 = _origAmbientColor2;
             AmbientColor3 = _origAmbientColor3;
+
+            // Restore original sun colors and intensities
+            SunColor1 = _origSunColor1;
+            SunColor2 = _origSunColor2;
+            SunIntensityPoint1 = _origSunIntensityPoint1;
+            SunIntensityPoint2 = _origSunIntensityPoint2;
+
+            // Restore original cloud colors
+            CloudColor1 = _origCloudColor1;
+            CloudColor2 = _origCloudColor2;
+            CloudColor3 = _origCloudColor3;
+
             SetNight();
         }
         else
@@ -449,6 +472,28 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
             AmbientColor1 = new Color(0.25f, 0.02f, 0.02f, 1f); // darker red
             AmbientColor2 = new Color(0.45f, 0.05f, 0.05f, 1f); // medium red
             AmbientColor3 = new Color(0.75f, 0.08f, 0.08f, 1f); // lighter red
+
+            // Save original sun colors and intensities before overriding
+            _origSunColor1 = SunColor1;
+            _origSunColor2 = SunColor2;
+            _origSunIntensityPoint1 = SunIntensityPoint1;
+            _origSunIntensityPoint2 = SunIntensityPoint2;
+
+            // Override sun to deep red with very low intensity
+            SunColor1 = new Color(0.5f, 0.02f, 0.02f, 1f);
+            SunColor2 = new Color(0.3f, 0.01f, 0.01f, 1f);
+            SunIntensityPoint1 = 0.01f;
+            SunIntensityPoint2 = 0.02f;
+
+            // Save original cloud colors before overriding
+            _origCloudColor1 = CloudColor1;
+            _origCloudColor2 = CloudColor2;
+            _origCloudColor3 = CloudColor3;
+
+            // Disable clouds by setting to black
+            CloudColor1 = Color.black;
+            CloudColor2 = Color.black;
+            CloudColor3 = Color.black;
 
             TimerRunning = false;
             CurrentTimeOfDay = DayTime; // Day time for visibility without visible sun
