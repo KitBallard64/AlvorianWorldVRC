@@ -22,7 +22,7 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     public int lastreceivedid = 0;
     [UdonSynced] public float SetSpeed = 1 / 600f;
 
-    // 0=Morning,1=Day,2=Evening,3=Night,4=TimerRunning
+    // 0=Morning,1=Day,2=Evening,3=Night,4=TimerRunning,5=Bloodmoon
     [UdonSynced] public int SetMode = 1;
 
     // Authoritative timer state (server-time based)
@@ -54,6 +54,17 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     public Image CheckEvening;
     public Image CheckNight;
     public Image CheckTimer;
+
+    [Header("Bloodmoon")]
+    [Tooltip("The bloodmoon mesh object (enabled during bloodmoon)")]
+    public GameObject BloodmoonObject1;
+    [Tooltip("The regular moon mesh object (disabled during bloodmoon)")]
+    public GameObject BloodmoonObject2;
+    public Color BloodmoonAmbientColor = new Color(0.8f, 0.1f, 0.1f, 1f);
+    [Tooltip("Optional star/moon tint during bloodmoon (desaturated red)")]
+    public Color BloodmoonStarColor = new Color(0.6f, 0.2f, 0.2f, 1f);
+    [Tooltip("Button text showing On/Off bloodmoon state")]
+    public Text BloodmoonButtonText;
 
     [Header("SET Environment Lighting > Source TO Color IN LIGHTING WINDOW!")]
     public Color AmbientColor1;
@@ -334,8 +345,11 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
         }
 
         // --- Lighting/Sky application ---
-        RenderSettings.ambientLight = ThreePoint(AmbientPoint1, AmbientPoint2, AmbientPoint3,
-            AmbientColor1, AmbientColor2, AmbientColor3);
+        if (SetMode == 5)
+            RenderSettings.ambientLight = BloodmoonAmbientColor;
+        else
+            RenderSettings.ambientLight = ThreePoint(AmbientPoint1, AmbientPoint2, AmbientPoint3,
+                AmbientColor1, AmbientColor2, AmbientColor3);
 
         if (UseSun && Sun != null)
         {
@@ -360,16 +374,24 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
 
         if (UseStars)
         {
-            c = TwoPoint(StarPoint1, StarPoint2, StarColor1, StarColor2);
-            StarsMat.SetColor("_EmissionColor", c);
-
-            if (c.a <= StarCutoff)
+            if (SetMode == 5)
             {
-                if (StarsObject.activeInHierarchy) StarsObject.SetActive(false);
+                StarsMat.SetColor("_EmissionColor", BloodmoonStarColor);
+                if (!StarsObject.activeInHierarchy) StarsObject.SetActive(true);
             }
-            else if (!StarsObject.activeInHierarchy)
+            else
             {
-                StarsObject.SetActive(true);
+                c = TwoPoint(StarPoint1, StarPoint2, StarColor1, StarColor2);
+                StarsMat.SetColor("_EmissionColor", c);
+
+                if (c.a <= StarCutoff)
+                {
+                    if (StarsObject.activeInHierarchy) StarsObject.SetActive(false);
+                }
+                else if (!StarsObject.activeInHierarchy)
+                {
+                    StarsObject.SetActive(true);
+                }
             }
         }
 
@@ -392,6 +414,42 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     {
         // Start timer at the predetermined Morning setting
         ApplyPresetAndMode(MorningTime, 0f, 4, true);
+    }
+
+    public void SetBloodmoon()
+    {
+        if (SetMode == 5)
+        {
+            // Bloodmoon is active — toggle it off by returning to night
+            SetNight();
+        }
+        else
+        {
+            // Activate bloodmoon
+            local = false;
+            SetToggleIsOnWithoutNotify(LocalToggle, false);
+
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            if (lp != null && !Networking.IsOwner(gameObject))
+            {
+                Networking.SetOwner(lp, gameObject);
+            }
+
+            TimerRunning = false;
+            CurrentTimeOfDay = 0.99f; // Just before midnight for maximum darkness
+            Speed = 0f;
+
+            SetTime = 0.99f;
+            SetSpeed = 0f;
+            SetMode = 5; // Bloodmoon
+            syncid = GetID();
+            RequestSerialization();
+
+            SetSliderValueWithoutNotify(TimeSlider, CurrentTimeOfDay);
+            SetSliderValueWithoutNotify(SpeedSlider, 0f);
+
+            ApplyDMCheckmarksFromMode();
+        }
     }
 
     private void ApplyPresetAndMode(float newTime01, float newSpeed, int newMode, bool startTimer)
@@ -450,6 +508,19 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
             mode == 3,
             mode == 4
         );
+
+        bool bloodmoon = mode == 5;
+        if (BloodmoonObject1 != null)
+        {
+            MeshRenderer mr1 = BloodmoonObject1.GetComponent<MeshRenderer>();
+            if (mr1 != null) mr1.enabled = bloodmoon;
+        }
+        if (BloodmoonObject2 != null)
+        {
+            MeshRenderer mr2 = BloodmoonObject2.GetComponent<MeshRenderer>();
+            if (mr2 != null) mr2.enabled = !bloodmoon;
+        }
+        if (BloodmoonButtonText != null) BloodmoonButtonText.text = bloodmoon ? "On" : "Off";
     }
 
     private void SetDMButtonChecks(bool morning, bool day, bool evening, bool night, bool timer)
