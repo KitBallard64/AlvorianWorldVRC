@@ -64,7 +64,7 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     [Tooltip("Optional star/moon tint during bloodmoon (desaturated red)")]
     public Color BloodmoonStarColor = new Color(0.6f, 0.2f, 0.2f, 1f);
     [Tooltip("Button text showing On/Off bloodmoon state")]
-    public Text BloodmoonButtonText;
+    public TextMeshProUGUI BloodmoonButtonText;
 
     [Header("SET Environment Lighting > Source TO Color IN LIGHTING WINDOW!")]
     public Color AmbientColor1;
@@ -639,3 +639,4 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     }
 #endif
 }
+
