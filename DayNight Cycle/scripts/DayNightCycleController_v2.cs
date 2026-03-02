@@ -65,6 +65,8 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
     public Color BloodmoonStarColor = new Color(0.6f, 0.2f, 0.2f, 1f);
     [Tooltip("Button text showing On/Off bloodmoon state")]
     public TextMeshProUGUI BloodmoonButtonText;
+    [Tooltip("Sun intensity during bloodmoon (adjustable in Inspector)")]
+    public float BloodmoonSunIntensity = 0.2f;
 
     [Header("SET Environment Lighting > Source TO Color IN LIGHTING WINDOW!")]
     public Color AmbientColor1;
@@ -366,18 +368,11 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
 
         if (UseSun && Sun != null)
         {
-            if (SetMode == 5)
-            {
-                Sun.enabled = false;
-            }
-            else
-            {
-                Sun.enabled = true;
-                Sun.transform.localRotation = Quaternion.Euler((CurrentTimeOfDay * 360f) - 90, 140, 30);
-                Sun.color = TwoPoint(SunPoint1, SunPoint2, SunColor1, SunColor2);
-                float sunintensity = TwoPointFloat(SunIntensityPoint1, SunIntensityPoint2);
-                Sun.intensity = (SunInitialIntensity * sunintensity) + 0.001f;
-            }
+            Sun.enabled = true;
+            Sun.transform.localRotation = Quaternion.Euler((CurrentTimeOfDay * 360f) - 90, 140, 30);
+            Sun.color = TwoPoint(SunPoint1, SunPoint2, SunColor1, SunColor2);
+            float sunintensity = TwoPointFloat(SunIntensityPoint1, SunIntensityPoint2);
+            Sun.intensity = (SunInitialIntensity * sunintensity) + 0.001f;
         }
 
         if (UseSky && SkyObject != null)
@@ -479,11 +474,11 @@ public class DayNightCycleController_v2 : UdonSharpBehaviour
             _origSunIntensityPoint1 = SunIntensityPoint1;
             _origSunIntensityPoint2 = SunIntensityPoint2;
 
-            // Override sun to deep red with very low intensity
-            SunColor1 = new Color(0.5f, 0.02f, 0.02f, 1f);
-            SunColor2 = new Color(0.3f, 0.01f, 0.01f, 1f);
-            SunIntensityPoint1 = 0.01f;
-            SunIntensityPoint2 = 0.02f;
+            // Override sun to deep red with adjustable intensity
+            SunColor1 = new Color(0.56f, 0.02f, 0.02f, 1f);
+            SunColor2 = new Color(0.56f, 0.02f, 0.02f, 1f);
+            SunIntensityPoint1 = BloodmoonSunIntensity;
+            SunIntensityPoint2 = BloodmoonSunIntensity;
 
             // Save original cloud colors before overriding
             _origCloudColor1 = CloudColor1;
