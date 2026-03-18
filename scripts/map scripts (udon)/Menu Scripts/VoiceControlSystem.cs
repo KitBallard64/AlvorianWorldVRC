@@ -5,19 +5,32 @@ using VRC.SDKBase;
 /// <summary>
 /// VoiceControlSystem - UdonSharp voice range/volume controller for VRChat SDK 3.10.2.
 ///
-/// Place one instance of this behaviour on a per-player GameObject (one per player slot
-/// in the world). The player who owns that object is the one whose voice is controlled.
-/// Ownership transfers automatically when a player takes the slot.
+/// OVERVIEW
+/// --------
+/// Place one instance of this behaviour on a dedicated "slot" GameObject per player
+/// slot in the world (e.g. 40 GameObjects for a 40-player world).  Each slot is owned
+/// by the player occupying that slot via Networking.SetOwner.
 ///
-/// Wire three UI Buttons on the player menu to call:
-///   SetWhisper()  - reduces voice distance and gain
-///   SetDefault()  - restores the configured default voice settings
-///   SetYell()     - increases voice distance and gain
+/// Do NOT wire the UI buttons directly to this component.  Use VoiceControlManager
+/// instead — it broadcasts button presses to all slots and the IsOwner() guard below
+/// ensures only the slot owned by the local player responds.
 ///
-/// When the owning player clicks a button:
-///  1. Settings are applied to the owner immediately (the owner does NOT receive OnDeserialization).
-///  2. The mode is synced to all other clients via UdonSynced serialization.
-///  3. Every other client applies the settings via OnDeserialization, so everyone hears the change.
+/// SIMULTANEOUS MULTI-PLAYER SUPPORT
+/// ----------------------------------
+/// Each slot carries its own [UdonSynced] _voiceMode variable, completely independent
+/// of every other slot.  When Player A clicks Whisper and Player B clicks Yell:
+///   - A's slot sets _voiceMode = WHISPER and serializes → all clients apply Whisper to A.
+///   - B's slot sets _voiceMode = YELL   and serializes → all clients apply Yell to B.
+///   - Player C (and everyone else) hears A whispering AND B yelling simultaneously.
+/// There is no shared state between slots, so any number of players can be in different
+/// modes at the same time.
+///
+/// NETWORK FLOW (per slot)
+/// -----------------------
+/// 1. Local player (owner) clicks a button via VoiceControlManager.
+/// 2. Button handler passes IsOwner() → updates _voiceMode → calls RequestSerialization().
+/// 3. Settings applied immediately on the owner (owner does NOT receive OnDeserialization).
+/// 4. All other clients receive OnDeserialization → apply voice settings to the slot owner.
 ///
 /// Replaces PlayerVolumeController which had the following issues:
 ///  - Start() crashed if attachedPlayer was null (no null check before voice API calls).
@@ -106,7 +119,7 @@ public class VoiceControlSystem : UdonSharpBehaviour
     }
 
     // -----------------------------------------------------------------------
-    // Button handlers - wire these to UnityEngine.UI.Button OnClick events
+    // Button handlers - called by VoiceControlManager, not wired to UI directly
     // -----------------------------------------------------------------------
 
     /// <summary>Called by the Whisper button in the player menu.</summary>
