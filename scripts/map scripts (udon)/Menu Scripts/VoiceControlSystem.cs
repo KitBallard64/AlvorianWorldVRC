@@ -1,42 +1,39 @@
 using UdonSharp;
 using UnityEngine;
+using UnityEngine.UI;
 using VRC.SDKBase;
 
 /// <summary>
-/// VoiceControlSystem - UdonSharp voice range/volume controller for VRChat SDK 3.10.2.
+/// VoiceControlSystem - Centralized, single-instance voice controller for VRChat SDK 3.10.2.
 ///
 /// OVERVIEW
 /// --------
-/// Place one instance of this behaviour on a dedicated "slot" GameObject per player
-/// slot in the world (e.g. 40 GameObjects for a 40-player world).  Each slot is owned
-/// by the player occupying that slot via Networking.SetOwner.
+/// Place ONE instance of this behaviour on a single GameObject in the world.
+/// All players interact with this same object — no per-player slots needed.
+/// Similar pattern to PlayerMenu.cs and DMRegistry.cs.
 ///
-/// Do NOT wire the UI buttons directly to this component.  Use VoiceControlManager
-/// instead — it broadcasts button presses to all slots and the IsOwner() guard below
-/// ensures only the slot owned by the local player responds.
+/// DYNAMIC PLAYER TRACKING (DMRegistry pattern)
+/// ---------------------------------------------
+/// playerIds  - tracks which players are registered (by VRChat playerId)
+/// voiceModes - their current voice mode (0=Whisper, 1=Default, 2=Yell)
+/// Both arrays grow/shrink dynamically when players click buttons or leave.
+/// Both are [UdonSynced] so all clients stay in sync.
 ///
-/// SIMULTANEOUS MULTI-PLAYER SUPPORT
-/// ----------------------------------
-/// Each slot carries its own [UdonSynced] _voiceMode variable, completely independent
-/// of every other slot.  When Player A clicks Whisper and Player B clicks Yell:
-///   - A's slot sets _voiceMode = WHISPER and serializes → all clients apply Whisper to A.
-///   - B's slot sets _voiceMode = YELL   and serializes → all clients apply Yell to B.
-///   - Player C (and everyone else) hears A whispering AND B yelling simultaneously.
-/// There is no shared state between slots, so any number of players can be in different
-/// modes at the same time.
+/// BUTTON INTEGRATION
+/// ------------------
+/// Wire whisperButton, defaultButton, yellButton OnClick events directly to
+/// SetWhisper(), SetDefault(), SetYell() on this component.
+/// VoiceControlManager is no longer needed.
+/// Active button = Green, inactive = Dark Red (local UI feedback only).
 ///
-/// NETWORK FLOW (per slot)
-/// -----------------------
-/// 1. Local player (owner) clicks a button via VoiceControlManager.
-/// 2. Button handler passes IsOwner() → updates _voiceMode → calls RequestSerialization().
-/// 3. Settings applied immediately on the owner (owner does NOT receive OnDeserialization).
-/// 4. All other clients receive OnDeserialization → apply voice settings to the slot owner.
-///
-/// Replaces PlayerVolumeController which had the following issues:
-///  - Start() crashed if attachedPlayer was null (no null check before voice API calls).
-///  - OnToggleChanged() never applied settings to the owner (OnDeserialization skips the owner).
-///  - _volumeControlFlag / _cachedVolumeControlFlag started as 2 (Loud) while Start() applied Normal.
-///  - Required a manually assigned attachedPlayer per inspector slot (fragile setup).
+/// NETWORK FLOW
+/// ------------
+/// 1. Local player clicks a button → SetWhisper/SetDefault/SetYell called.
+/// 2. Script fetches Networking.LocalPlayer fresh → gets their playerId.
+/// 3. Finds or adds them to the arrays → updates their voiceMode.
+/// 4. Applies voice settings immediately → updates button colors (local only).
+/// 5. Calls RequestSerialization() → all other clients receive OnDeserialization.
+/// 6. OnDeserialization loops through all tracked players and applies their modes.
 /// </summary>
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class VoiceControlSystem : UdonSharpBehaviour
@@ -47,6 +44,26 @@ public class VoiceControlSystem : UdonSharpBehaviour
     private const byte MODE_WHISPER = 0;
     private const byte MODE_DEFAULT = 1;
     private const byte MODE_YELL    = 2;
+
+    // -----------------------------------------------------------------------
+    // Button references (Inspector - wire OnClick to SetWhisper/SetDefault/SetYell)
+    // -----------------------------------------------------------------------
+    [Header("Button References")]
+    [Tooltip("Button component for Whisper mode. Wire its OnClick to SetWhisper().")]
+    public Button whisperButton;
+
+    [Tooltip("Button component for Default mode. Wire its OnClick to SetDefault().")]
+    public Button defaultButton;
+
+    [Tooltip("Button component for Yell mode. Wire its OnClick to SetYell().")]
+    public Button yellButton;
+
+    // -----------------------------------------------------------------------
+    // HUD reference (drag in via Inspector — not found at runtime)
+    // -----------------------------------------------------------------------
+    [Header("HUD Reference")]
+    [Tooltip("Drag the PublicDiceRollHUD component here. Not looked up at runtime.")]
+    public PublicDiceRollHUD hud;
 
     // -----------------------------------------------------------------------
     // Whisper settings (inspector-adjustable)
@@ -98,78 +115,91 @@ public class VoiceControlSystem : UdonSharpBehaviour
     public bool debugLog = false;
 
     // -----------------------------------------------------------------------
-    // Networked state
-    // Use literal 1 = MODE_DEFAULT so both fields start in sync on join.
+    // Button colors (local UI feedback only — not synced)
+    // -----------------------------------------------------------------------
+    private Color _colorActive   = new Color(0f,   0.55f, 0f,   1f); // Green
+    private Color _colorInactive = new Color(0.4f, 0f,    0f,   1f); // Dark Red
+
+    // -----------------------------------------------------------------------
+    // Networked state — dynamic parallel arrays (DMRegistry pattern)
     // -----------------------------------------------------------------------
     [UdonSynced]
-    private byte _voiceMode = 1;        // 1 = MODE_DEFAULT
-    private byte _cachedVoiceMode = 1;  // 1 = MODE_DEFAULT
+    private int[] playerIds = new int[0];
+
+    [UdonSynced]
+    private byte[] voiceModes = new byte[0];
 
     // -----------------------------------------------------------------------
-    // Local player reference
+    // Button handlers — wire directly to UI button OnClick events
     // -----------------------------------------------------------------------
-    private VRCPlayerApi _localPlayer;
 
-    // -----------------------------------------------------------------------
-    // Lifecycle
-    // -----------------------------------------------------------------------
-    private void Start()
+    /// <summary>Called by the Whisper button OnClick.</summary>
+    public void SetWhisper() => ApplyMode(MODE_WHISPER, "🎤 Whispering");
+
+    /// <summary>Called by the Default button OnClick.</summary>
+    public void SetDefault() => ApplyMode(MODE_DEFAULT, "🎤 Normal Voice");
+
+    /// <summary>Called by the Yell button OnClick.</summary>
+    public void SetYell() => ApplyMode(MODE_YELL, "🎤 Yelling");
+
+    /// <summary>
+    /// Common implementation for all three button handlers.
+    /// Fetches LocalPlayer fresh, registers them, applies settings, and syncs.
+    /// Taking ownership first ensures this client can serialize the updated arrays.
+    /// </summary>
+    private void ApplyMode(byte mode, string hudMessage)
     {
-        _localPlayer = Networking.LocalPlayer;
-    }
+        VRCPlayerApi localPlayer = Networking.LocalPlayer;
+        if (localPlayer == null) return;
 
-    // -----------------------------------------------------------------------
-    // Button handlers - called by VoiceControlManager, not wired to UI directly
-    // -----------------------------------------------------------------------
+        int idx = FindOrAddPlayer(localPlayer.playerId);
+        voiceModes[idx] = mode;
+        ApplyVoiceSettingsToPlayer(localPlayer, mode);
+        UpdateButtonColors(mode);
 
-    /// <summary>Called by the Whisper button in the player menu.</summary>
-    public void SetWhisper()
-    {
-        if (!IsOwner()) return;
-
-        _voiceMode = MODE_WHISPER;
+        Networking.SetOwner(localPlayer, gameObject);
         RequestSerialization();
-        ApplyVoiceMode(_voiceMode);
+
+        if (hud != null)
+            hud.ReceiveRollMessage(hudMessage);
 
         if (debugLog)
-            Debug.Log("[VoiceControlSystem] Owner set mode to Whisper.");
-    }
-
-    /// <summary>Called by the Default button in the player menu.</summary>
-    public void SetDefault()
-    {
-        if (!IsOwner()) return;
-
-        _voiceMode = MODE_DEFAULT;
-        RequestSerialization();
-        ApplyVoiceMode(_voiceMode);
-
-        if (debugLog)
-            Debug.Log("[VoiceControlSystem] Owner set mode to Default.");
-    }
-
-    /// <summary>Called by the Yell button in the player menu.</summary>
-    public void SetYell()
-    {
-        if (!IsOwner()) return;
-
-        _voiceMode = MODE_YELL;
-        RequestSerialization();
-        ApplyVoiceMode(_voiceMode);
-
-        if (debugLog)
-            Debug.Log("[VoiceControlSystem] Owner set mode to Yell.");
+            Debug.Log("[VoiceControlSystem] " + localPlayer.displayName + " set mode to " + hudMessage + ".");
     }
 
     // -----------------------------------------------------------------------
-    // Network sync - received by every client when the owner serializes
+    // Network sync — received by every client when the arrays are serialized
     // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Loops through all tracked players and applies their current voice mode.
+    /// Called on every client (except the sender) after RequestSerialization().
+    /// </summary>
     public override void OnDeserialization()
     {
-        if (_cachedVoiceMode == _voiceMode) return;
+        for (int i = 0; i < playerIds.Length; i++)
+        {
+            VRCPlayerApi player = VRCPlayerApi.GetPlayerById(playerIds[i]);
+            if (player == null || !player.IsValid()) continue;
+            ApplyVoiceSettingsToPlayer(player, voiceModes[i]);
+        }
+    }
 
-        ApplyVoiceMode(_voiceMode);
-        _cachedVoiceMode = _voiceMode;
+    // -----------------------------------------------------------------------
+    // Player leave handling
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Removes the leaving player from the tracking arrays and compacts them,
+    /// matching the shift pattern used in DMRegistry.
+    /// Only the current owner serializes the updated arrays to all clients.
+    /// </summary>
+    public override void OnPlayerLeft(VRCPlayerApi player)
+    {
+        if (player == null) return;
+        RemovePlayer(player.playerId);
+        if (Networking.IsOwner(gameObject))
+            RequestSerialization();
     }
 
     // -----------------------------------------------------------------------
@@ -177,58 +207,141 @@ public class VoiceControlSystem : UdonSharpBehaviour
     // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Returns true if the local player is the owner of this object.
-    /// Only the owner (the player whose voice this controls) should change the mode.
-    /// Falls back to Networking.LocalPlayer in case Start() has not yet run.
+    /// Returns the index of a player in the tracking arrays.
+    /// If not found, adds them with DEFAULT mode and returns their new index.
     /// </summary>
-    private bool IsOwner()
+    private int FindOrAddPlayer(int playerId)
     {
-        if (_localPlayer == null)
-            _localPlayer = Networking.LocalPlayer;
+        for (int i = 0; i < playerIds.Length; i++)
+        {
+            if (playerIds[i] == playerId)
+                return i;
+        }
 
-        return _localPlayer != null && Networking.IsOwner(_localPlayer, gameObject);
+        // Not found — grow arrays by 1 and add with DEFAULT mode
+        int newLength = playerIds.Length + 1;
+        int[]  newPlayerIds  = new int[newLength];
+        byte[] newVoiceModes = new byte[newLength];
+
+        for (int i = 0; i < playerIds.Length; i++)
+        {
+            newPlayerIds[i]  = playerIds[i];
+            newVoiceModes[i] = voiceModes[i];
+        }
+
+        newPlayerIds[newLength - 1]  = playerId;
+        newVoiceModes[newLength - 1] = MODE_DEFAULT;
+
+        playerIds  = newPlayerIds;
+        voiceModes = newVoiceModes;
+
+        if (debugLog)
+            Debug.Log("[VoiceControlSystem] Added player ID " + playerId + " to tracking.");
+
+        return newLength - 1;
     }
 
     /// <summary>
-    /// Applies the given voice mode to the player who owns this object.
-    /// Called both on the owner (immediately) and on every other client (via OnDeserialization),
-    /// so all players in the instance hear the voice change.
+    /// Removes a player from the tracking arrays, shifting remaining entries to
+    /// keep the arrays compact — same pattern as DMRegistry.RemoveTempDM().
     /// </summary>
-    private void ApplyVoiceMode(byte mode)
+    private void RemovePlayer(int playerId)
     {
-        VRCPlayerApi targetPlayer = Networking.GetOwner(gameObject);
-        if (targetPlayer == null || !targetPlayer.IsValid()) return;
+        if (playerIds.Length == 0) return;
+
+        int countToKeep = 0;
+        for (int i = 0; i < playerIds.Length; i++)
+        {
+            if (playerIds[i] != playerId)
+                countToKeep++;
+        }
+
+        if (countToKeep == playerIds.Length) return; // player not found
+
+        int[]  newPlayerIds  = new int[countToKeep];
+        byte[] newVoiceModes = new byte[countToKeep];
+        int idx = 0;
+
+        for (int i = 0; i < playerIds.Length; i++)
+        {
+            if (playerIds[i] != playerId)
+            {
+                newPlayerIds[idx]  = playerIds[i];
+                newVoiceModes[idx] = voiceModes[i];
+                idx++;
+            }
+        }
+
+        playerIds  = newPlayerIds;
+        voiceModes = newVoiceModes;
+
+        if (debugLog)
+            Debug.Log("[VoiceControlSystem] Removed player ID " + playerId + " from tracking.");
+    }
+
+    /// <summary>Applies voice distance and gain settings for the given mode to a player.</summary>
+    private void ApplyVoiceSettingsToPlayer(VRCPlayerApi player, byte mode)
+    {
+        if (player == null || !player.IsValid()) return;
 
         switch (mode)
         {
             case MODE_WHISPER:
-                targetPlayer.SetVoiceDistanceNear(whisperDistanceNear);
-                targetPlayer.SetVoiceDistanceFar(whisperDistanceFar);
-                targetPlayer.SetVoiceGain(whisperGain);
+                player.SetVoiceDistanceNear(whisperDistanceNear);
+                player.SetVoiceDistanceFar(whisperDistanceFar);
+                player.SetVoiceGain(whisperGain);
                 if (debugLog)
-                    Debug.Log("[VoiceControlSystem] Applied Whisper to: " + targetPlayer.displayName);
+                    Debug.Log("[VoiceControlSystem] Applied Whisper to: " + player.displayName);
                 break;
 
             case MODE_DEFAULT:
-                targetPlayer.SetVoiceDistanceNear(defaultDistanceNear);
-                targetPlayer.SetVoiceDistanceFar(defaultDistanceFar);
-                targetPlayer.SetVoiceGain(defaultGain);
+                player.SetVoiceDistanceNear(defaultDistanceNear);
+                player.SetVoiceDistanceFar(defaultDistanceFar);
+                player.SetVoiceGain(defaultGain);
                 if (debugLog)
-                    Debug.Log("[VoiceControlSystem] Applied Default to: " + targetPlayer.displayName);
+                    Debug.Log("[VoiceControlSystem] Applied Default to: " + player.displayName);
                 break;
 
             case MODE_YELL:
-                targetPlayer.SetVoiceDistanceNear(yellDistanceNear);
-                targetPlayer.SetVoiceDistanceFar(yellDistanceFar);
-                targetPlayer.SetVoiceGain(yellGain);
+                player.SetVoiceDistanceNear(yellDistanceNear);
+                player.SetVoiceDistanceFar(yellDistanceFar);
+                player.SetVoiceGain(yellGain);
                 if (debugLog)
-                    Debug.Log("[VoiceControlSystem] Applied Yell to: " + targetPlayer.displayName);
+                    Debug.Log("[VoiceControlSystem] Applied Yell to: " + player.displayName);
                 break;
 
             default:
                 if (debugLog)
                     Debug.LogWarning("[VoiceControlSystem] Unknown voice mode: " + mode);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Updates button background colors: active mode = green, others = dark red.
+    /// Color changes are local only — pure UI feedback, not synced over the network.
+    /// </summary>
+    private void UpdateButtonColors(byte activeMode)
+    {
+        if (whisperButton != null)
+        {
+            ColorBlock cb = whisperButton.colors;
+            cb.normalColor = (activeMode == MODE_WHISPER) ? _colorActive : _colorInactive;
+            whisperButton.colors = cb;
+        }
+
+        if (defaultButton != null)
+        {
+            ColorBlock cb = defaultButton.colors;
+            cb.normalColor = (activeMode == MODE_DEFAULT) ? _colorActive : _colorInactive;
+            defaultButton.colors = cb;
+        }
+
+        if (yellButton != null)
+        {
+            ColorBlock cb = yellButton.colors;
+            cb.normalColor = (activeMode == MODE_YELL) ? _colorActive : _colorInactive;
+            yellButton.colors = cb;
         }
     }
 }
