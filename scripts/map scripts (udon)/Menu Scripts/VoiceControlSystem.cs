@@ -134,13 +134,13 @@ public class VoiceControlSystem : UdonSharpBehaviour
     // -----------------------------------------------------------------------
 
     /// <summary>Called by the Whisper button OnClick.</summary>
-    public void SetWhisper() => ApplyMode(MODE_WHISPER, "🎤 Whispering");
+    public void SetWhisper() => ApplyMode(MODE_WHISPER, "[Voice] Whispering");
 
     /// <summary>Called by the Default button OnClick.</summary>
-    public void SetDefault() => ApplyMode(MODE_DEFAULT, "🎤 Normal Voice");
+    public void SetDefault() => ApplyMode(MODE_DEFAULT, "[Voice] Normal Voice");
 
     /// <summary>Called by the Yell button OnClick.</summary>
-    public void SetYell() => ApplyMode(MODE_YELL, "🎤 Yelling");
+    public void SetYell() => ApplyMode(MODE_YELL, "[Voice] Yelling");
 
     /// <summary>
     /// Common implementation for all three button handlers.
