@@ -57,6 +57,7 @@ public class PlayerOptionsController : UdonSharpBehaviour
     private bool _hudVisible = true;          // default ON
 
     private VRCPlayerApi _localPlayer;
+    private bool _hasRestoredOnce = false;
 
     private const string CHECKMARK = "✓";
     private const string EMPTY = "";
@@ -250,6 +251,8 @@ public class PlayerOptionsController : UdonSharpBehaviour
     public override void OnPlayerRestored(VRCPlayerApi player)
     {
         if (!player.isLocal) return;
+        if (_hasRestoredOnce) return;
+        _hasRestoredOnce = true;
 
         // Double-tap fly
         int savedDouble;
