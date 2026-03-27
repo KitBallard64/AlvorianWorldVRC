@@ -103,7 +103,7 @@ public class PlayerOptionsController : UdonSharpBehaviour
             _doubleTapEnabled = false;
             ApplyDoubleTapState();
             PlayerData.SetInt(DOUBLE_TAP_KEY, 0);
-            
+
             ResetButtonFlipState();
         }
     }
@@ -136,7 +136,7 @@ public class PlayerOptionsController : UdonSharpBehaviour
 
         ApplyDoubleTapState();
         PlayerData.SetInt(DOUBLE_TAP_KEY, _doubleTapEnabled ? 1 : 0);
-        
+
         // Update button flip option visibility
         UpdateVrVisibility();
     }
